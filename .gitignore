@@ -32,6 +32,22 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Editor directories and files
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+*.bak
