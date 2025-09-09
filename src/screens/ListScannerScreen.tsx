@@ -12,15 +12,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { RouteProp } from '@react-navigation/native';
+import { RootTabParamList } from '../navigation/types';
 import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { openRouterService, ScanResult, BarcodeResult } from '../services/openRouterService';
 import { openFoodFactsService, ProcessedProduct } from '../services/openFoodFactsService';
 import { useShoppingList } from '../hooks/useShoppingList';
 import { NameInputModal, SuccessModal, ErrorModal } from '../components/common';
 
+type ListScannerScreenRouteProp = RouteProp<RootTabParamList, 'ListScanner'>;
+
 export const ListScannerScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute<ListScannerScreenRouteProp>();
   const { activeList, addItem } = useShoppingList();
   const cameraRef = useRef<CameraView>(null);
   
@@ -28,7 +33,7 @@ export const ListScannerScreen: React.FC = () => {
   const [cameraType, setCameraType] = useState<CameraType>('back');
   const [isProcessing, setIsProcessing] = useState(false);
   const [flashMode, setFlashMode] = useState<'off' | 'on'>('off');
-  const [scanMode, setScanMode] = useState<'list' | 'barcode'>('list');
+  const [scanMode, setScanMode] = useState<'list' | 'barcode'>(route.params?.scanMode || 'list');
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingScanResult, setPendingScanResult] = useState<ScanResult | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -43,6 +48,17 @@ export const ListScannerScreen: React.FC = () => {
       requestPermission();
     }
   }, [permission, requestPermission]);
+
+  // Reset scan mode when screen focuses without params
+  useFocusEffect(
+    React.useCallback(() => {
+      if (route.params?.scanMode) {
+        setScanMode(route.params.scanMode);
+      } else {
+        setScanMode('list');
+      }
+    }, [route.params?.scanMode])
+  );
 
   const takePicture = async () => {
     if (!cameraRef.current || isProcessing) return;
@@ -218,7 +234,7 @@ export const ListScannerScreen: React.FC = () => {
   const handleViewList = () => {
     setShowSuccessModal(false);
     setSuccessData(null);
-    navigation.navigate('ShoppingList' as never);
+    navigation.navigate('MyLists' as never);
   };
 
   const toggleCameraType = () => {

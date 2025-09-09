@@ -19,7 +19,6 @@ import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { Input, ProgressBar, RecipeModal } from '../components/common';
 import { ProductDetailsModal } from '../components/common/ProductDetailsModal';
 import { QuantityPicker } from '../components/shopping/QuantityPicker';
-import { BarcodeScanner } from '../components/shopping/BarcodeScanner';
 import { useShoppingList } from '../hooks/useShoppingList';
 import { ShoppingItem } from '../types/ShoppingList';
 import { ProcessedProduct, openFoodFactsService, OpenFoodFactsProduct } from '../services/openFoodFactsService';
@@ -31,7 +30,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [newItemText, setNewItemText] = useState('');
   const [searchText, setSearchText] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isBarcodeScannerVisible, setIsBarcodeScannerVisible] = useState(false);
   const [showProductDetails, setShowProductDetails] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OpenFoodFactsProduct | null>(null);
   const [selectedProductName, setSelectedProductName] = useState('');
@@ -149,28 +147,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     await removeItemFromCurrentList(id);
   };
 
-  const handleProductScanned = async (product: ProcessedProduct) => {
-    try {
-      const unit = openFoodFactsService.getDefaultUnit(product);
-      await addItemToCurrentList({
-        name: product.name,
-        category: product.category as any,
-        quantity: 1,
-        unit: unit,
-        barcode: product.barcode,
-        isCompleted: false,
-      });
-    } catch (error) {
-      console.error('Error adding scanned product:', error);
-    }
-  };
 
   const openBarcodeScanner = () => {
-    setIsBarcodeScannerVisible(true);
-  };
-
-  const closeBarcodeScanner = () => {
-    setIsBarcodeScannerVisible(false);
+    // Navigate to the full-screen ListScanner in barcode mode
+    navigation.navigate('ListScanner', { scanMode: 'barcode' } as never);
   };
 
   const handleItemTap = async (item: ShoppingItem) => {
@@ -456,12 +436,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       </View>
 
-      {/* Barcode Scanner Modal */}
-      <BarcodeScanner
-        visible={isBarcodeScannerVisible}
-        onClose={closeBarcodeScanner}
-        onProductScanned={handleProductScanned}
-      />
 
       {/* No Barcode Modal */}
       <Modal

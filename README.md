@@ -45,7 +45,12 @@
 <div align="center">
   <img src="appimages/4.png" alt="Settings" width="250"/>
   <img src="appimages/5.png" alt="List Items" width="250"/>
-  <img src="appimages/6.png" alt="Recipe View" width="250"/>
+  <img src="appimages/6.png" alt="Recipe Ingredients" width="250"/>
+</div>
+
+<div align="center">
+  <img src="appimages/7.png" alt="Recipe Instructions" width="250"/>
+  <img src="appimages/8.png" alt="Product Details" width="250"/>
 </div>
 
 ## Tech Stack

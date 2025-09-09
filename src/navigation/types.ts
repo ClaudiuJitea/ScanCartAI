@@ -4,7 +4,7 @@ export type RootTabParamList = {
   MyLists: NavigatorScreenParams<ListsStackParamList>;
   MealPlanner: undefined;
   Settings: undefined;
-  ListScanner: undefined;
+  ListScanner: { scanMode?: 'list' | 'barcode' };
 };
 
 export type ListsStackParamList = {

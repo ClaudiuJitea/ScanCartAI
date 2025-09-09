@@ -145,6 +145,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               <Text style={styles.headerTitle}>Product Details</Text>
               <View style={styles.headerLine} />
             </View>
+            <View style={styles.headerSpacer} />
           </View>
         </View>
 
@@ -246,7 +247,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   closeButton: {
+    width: 36,
     zIndex: 10,
+  },
+  headerSpacer: {
+    width: 36,
   },
   closeButtonBackground: {
     width: 36,
@@ -264,7 +269,6 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
-    marginHorizontal: spacing.lg,
   },
   headerTitle: {
     ...typography.h2,
@@ -417,56 +421,71 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   section: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   sectionTitle: {
     ...typography.h4,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     color: colors.primary,
+    fontWeight: 'bold',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   infoLabel: {
     ...typography.caption,
     color: colors.textMuted,
-    minWidth: 80,
+    minWidth: 90,
+    marginLeft: spacing.sm,
   },
   infoValue: {
     ...typography.body,
     flex: 1,
     fontWeight: '500',
+    marginLeft: spacing.sm,
   },
   nutritionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
   nutritionItem: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderRadius: borderRadius.md,
-    minWidth: '45%',
+    width: '47%',
     alignItems: 'center',
+    minHeight: 100,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   nutritionIcon: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   nutritionLabel: {
     ...typography.caption,
     color: colors.textMuted,
     marginBottom: spacing.xs,
     textAlign: 'center',
+    fontSize: 12,
   },
   nutritionValue: {
     ...typography.body,
-    fontWeight: '600',
+    fontWeight: 'bold',
     textAlign: 'center',
+    fontSize: 16,
+    color: colors.textPrimary,
   },
   ingredientsText: {
     ...typography.body,

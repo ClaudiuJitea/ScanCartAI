@@ -15,6 +15,8 @@ export const colors = {
 export const typography = {
   h1: { fontSize: 28, fontWeight: 'bold' as const, color: colors.textPrimary },
   h2: { fontSize: 24, fontWeight: '600' as const, color: colors.textPrimary },
+  h3: { fontSize: 20, fontWeight: '600' as const, color: colors.textPrimary },
+  h4: { fontSize: 18, fontWeight: '600' as const, color: colors.textPrimary },
   body: { fontSize: 16, fontWeight: 'normal' as const, color: colors.textPrimary },
   caption: { fontSize: 14, fontWeight: 'normal' as const, color: colors.textSecondary },
   muted: { fontSize: 12, fontWeight: 'normal' as const, color: colors.textMuted },
