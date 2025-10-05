@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { ShoppingList, ShoppingItem, Category } from '../types/ShoppingList';
+import { BackupPayload } from '../types/Backup';
 
 const DATABASE_NAME = 'grocery_list.db';
 
@@ -343,6 +344,64 @@ class DatabaseService {
       createdAt: new Date(item.created_at),
       completedAt: item.completed_at ? new Date(item.completed_at) : undefined,
     }));
+  }
+
+  async replaceAllData(payload: BackupPayload): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.execAsync(`
+      DELETE FROM shopping_items;
+      DELETE FROM shopping_lists;
+      DELETE FROM app_settings WHERE key = 'current_list_id';
+    `);
+
+    if (!payload.lists || payload.lists.length === 0) {
+      await this.seedDefaultData();
+      return;
+    }
+
+    for (const list of payload.lists) {
+      await this.db.runAsync(
+        'INSERT INTO shopping_lists (id, name, created_at, updated_at, is_template, is_meal_plan) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          list.id,
+          list.name,
+          list.createdAt,
+          list.updatedAt,
+          list.isTemplate ? 1 : 0,
+          list.isMealPlan ? 1 : 0,
+        ]
+      );
+
+      for (const item of list.items) {
+        await this.db.runAsync(
+          `INSERT INTO shopping_items (id, list_id, name, quantity, unit, category, notes, is_completed, created_at, completed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.id,
+            list.id,
+            item.name,
+            item.quantity ?? null,
+            item.unit ?? null,
+            item.category,
+            item.notes ?? null,
+            item.isCompleted ? 1 : 0,
+            item.createdAt,
+            item.completedAt ?? null,
+          ]
+        );
+      }
+    }
+
+    const validCurrentListId =
+      payload.currentListId && payload.lists.some(list => list.id === payload.currentListId)
+        ? payload.currentListId
+        : payload.lists[0].id;
+
+    await this.db.runAsync(
+      'INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)',
+      ['current_list_id', validCurrentListId]
+    );
   }
 
   async clearAllData(): Promise<void> {

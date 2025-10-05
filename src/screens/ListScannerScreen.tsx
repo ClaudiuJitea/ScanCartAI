@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,8 @@ import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { openRouterService, ScanResult, BarcodeResult } from '../services/openRouterService';
 import { openFoodFactsService, ProcessedProduct } from '../services/openFoodFactsService';
 import { useShoppingList } from '../hooks/useShoppingList';
-import { NameInputModal, SuccessModal, ErrorModal } from '../components/common';
+import { NameInputModal, SuccessModal, ErrorModal, ThemedDialog } from '../components/common';
+import { DialogConfig } from '../types/Dialog';
 
 type ListScannerScreenRouteProp = RouteProp<RootTabParamList, 'ListScanner'>;
 
@@ -42,6 +43,10 @@ export const ListScannerScreen: React.FC = () => {
   const [productAddedMessage, setProductAddedMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [dialogConfig, setDialogConfig] = useState<DialogConfig | null>(null);
+
+  const closeDialog = () => setDialogConfig(null);
+  const showDialog = (config: DialogConfig) => setDialogConfig(config);
 
   useEffect(() => {
     if (!permission) {
@@ -60,6 +65,29 @@ export const ListScannerScreen: React.FC = () => {
     }, [route.params?.scanMode])
   );
 
+  const handleRequestCameraPermission = async () => {
+    if (permission?.canAskAgain === false) {
+      showDialog({
+        title: 'Camera Permission Blocked',
+        message: 'ScanCart needs camera access. Enable it from Settings to continue scanning.',
+        appearance: 'info',
+        primaryLabel: 'Open Settings',
+        onPrimary: () => Linking.openSettings(),
+        secondaryLabel: 'Not Now',
+      });
+      return;
+    }
+
+    const result = await requestPermission();
+    if (!result?.granted) {
+      showDialog({
+        title: 'Camera Access Needed',
+        message: 'We still do not have access to the camera. Please enable permissions to scan lists.',
+        appearance: 'info',
+      });
+    }
+  };
+
   const takePicture = async () => {
     if (!cameraRef.current || isProcessing) return;
 
@@ -75,7 +103,11 @@ export const ListScannerScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error taking picture:', error);
-      Alert.alert('Error', 'Failed to take picture. Please try again.');
+      showDialog({
+        title: 'Capture Failed',
+        message: 'We could not capture a photo. Please try again.',
+        appearance: 'error',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -87,7 +119,14 @@ export const ListScannerScreen: React.FC = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to photos to use this feature.');
+        showDialog({
+          title: 'Photo Access Needed',
+          message: 'Please allow ScanCart to access your photos to import images from your library.',
+          appearance: 'info',
+          primaryLabel: 'Open Settings',
+          onPrimary: () => Linking.openSettings(),
+          secondaryLabel: 'Not Now',
+        });
         return;
       }
 
@@ -104,7 +143,11 @@ export const ListScannerScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
+      showDialog({
+        title: 'Selection Failed',
+        message: 'We could not open that photo. Please try a different image.',
+        appearance: 'error',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -209,7 +252,11 @@ export const ListScannerScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error creating list from scan:', error);
-      Alert.alert('Error', 'Failed to create list from scanned image.');
+      showDialog({
+        title: 'Something Went Wrong',
+        message: 'We could not turn that scan into a list. Please try again.',
+        appearance: 'error',
+      });
     }
   };
 
@@ -262,7 +309,7 @@ export const ListScannerScreen: React.FC = () => {
         <Text style={styles.permissionText}>
           We need camera access to scan your shopping lists.
         </Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+        <TouchableOpacity style={styles.permissionButton} onPress={handleRequestCameraPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -395,6 +442,22 @@ export const ListScannerScreen: React.FC = () => {
         visible={showErrorModal}
         onClose={() => setShowErrorModal(false)}
         message={errorMessage}
+      />
+
+      <ThemedDialog
+        visible={Boolean(dialogConfig)}
+        title={dialogConfig?.title ?? ''}
+        message={dialogConfig?.message ?? ''}
+        appearance={dialogConfig?.appearance}
+        onClose={closeDialog}
+        primaryAction={{
+          label: dialogConfig?.primaryLabel ?? 'OK',
+          onPress: dialogConfig?.onPrimary,
+          variant: dialogConfig?.primaryVariant ?? 'primary',
+        }}
+        secondaryAction={dialogConfig?.secondaryLabel
+          ? { label: dialogConfig.secondaryLabel, onPress: dialogConfig.onSecondary }
+          : undefined}
       />
     </SafeAreaView>
   );

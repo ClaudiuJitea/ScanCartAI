@@ -10,6 +10,8 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -17,9 +19,10 @@ import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { Card } from '../components/common';
 import { useShoppingList } from '../hooks/useShoppingList';
 import { openRouterService } from '../services/openRouterService';
+import { createBackup, restoreBackupFromUri } from '../services/backupService';
 
 export const SettingsScreen: React.FC = () => {
-  const { lists, clearStorage } = useShoppingList();
+  const { lists, clearStorage, initializeStore } = useShoppingList();
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
@@ -28,6 +31,11 @@ export const SettingsScreen: React.FC = () => {
   const [userName, setUserName] = useState<string>('User');
   const [tempUserName, setTempUserName] = useState<string>('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [isClearingData, setIsClearingData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const inputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
@@ -139,29 +147,95 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleExportData = async () => {
+    try {
+      setIsExporting(true);
+      const backupResult = await createBackup();
+      const listsLabel = backupResult.listCount === 1 ? 'list' : 'lists';
+      const itemsLabel = backupResult.itemCount === 1 ? 'item' : 'items';
+
+      if (await Sharing.isAvailableAsync()) {
+        try {
+          await Sharing.shareAsync(backupResult.fileUri, {
+            mimeType: 'application/json',
+            dialogTitle: 'Export Lists',
+            UTI: 'public.json',
+          });
+        } catch (shareError) {
+          console.warn('Share action was cancelled or failed:', shareError);
+        }
+      }
+
+      setSuccessMessage(`Exported ${backupResult.listCount} ${listsLabel} (${backupResult.itemCount} ${itemsLabel}). Saved as ${backupResult.fileName}.`);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      Alert.alert(
+        'Export Failed',
+        error instanceof Error ? error.message : 'Could not export data. Please try again.'
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      setIsImporting(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        throw new Error('Unable to read the selected file.');
+      }
+
+      const summary = await restoreBackupFromUri(asset.uri);
+      await initializeStore();
+
+      const listsLabel = summary.listCount === 1 ? 'list' : 'lists';
+      const itemsLabel = summary.itemCount === 1 ? 'item' : 'items';
+      setSuccessMessage(`Imported ${summary.listCount} ${listsLabel} with ${summary.itemCount} ${itemsLabel}.`);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error importing data:', error);
+      Alert.alert(
+        'Import Failed',
+        error instanceof Error ? error.message : 'Could not import data. Please try again.'
+      );
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleClearAllData = () => {
-    Alert.alert(
-      'Clear All Data',
-      'Are you sure you want to delete all lists and items? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearStorage();
-              Alert.alert('Success', 'All data has been cleared.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setShowClearDataModal(true);
+  };
+
+  const openPrivacyPolicy = () => {
+    setShowPrivacyModal(true);
+  };
+
+  const confirmClearAllData = async () => {
+    setIsClearingData(true);
+    try {
+      await clearStorage();
+      setShowClearDataModal(false);
+      setSuccessMessage('All data has been cleared.');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      Alert.alert('Error', 'Failed to clear data. Please try again.');
+    } finally {
+      setIsClearingData(false);
+    }
   };
 
   const totalItems = lists.reduce((total, list) => total + list.items.length, 0);
@@ -181,7 +255,11 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         
         {/* Account Section */}
         <View style={styles.section}>
@@ -262,60 +340,40 @@ export const SettingsScreen: React.FC = () => {
           )}
         </View>
 
-        {/* App Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Settings</Text>
-          
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
-              <Text style={styles.settingText}>Notifications</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="color-palette-outline" size={20} color={colors.textSecondary} />
-              <Text style={styles.settingText}>Theme</Text>
-            </View>
-            <View style={styles.settingRight}>
-              <Text style={styles.settingValue}>Dark</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="language-outline" size={20} color={colors.textSecondary} />
-              <Text style={styles.settingText}>Language</Text>
-            </View>
-            <View style={styles.settingRight}>
-              <Text style={styles.settingValue}>English</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* Data Management */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Management</Text>
           
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={[styles.settingItem, isExporting && styles.settingItemDisabled]}
+            onPress={handleExportData}
+            disabled={isExporting}
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="download-outline" size={20} color={colors.textSecondary} />
               <Text style={styles.settingText}>Export Data</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            <View style={styles.settingRight}>
+              <Text style={styles.settingValue}>{isExporting ? 'Preparing...' : 'JSON'}</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={[styles.settingItem, isImporting && styles.settingItemDisabled]}
+            onPress={handleImportData}
+            disabled={isImporting}
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="cloud-upload-outline" size={20} color={colors.textSecondary} />
               <Text style={styles.settingText}>Import Data</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            <View style={styles.settingRight}>
+              <Text style={styles.settingValue}>{isImporting ? 'Loading...' : 'JSON'}</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
           </TouchableOpacity>
+
 
           <TouchableOpacity 
             style={[styles.settingItem, styles.dangerItem]}
@@ -343,15 +401,11 @@ export const SettingsScreen: React.FC = () => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="help-circle-outline" size={20} color={colors.textSecondary} />
-              <Text style={styles.settingText}>Help & Support</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={openPrivacyPolicy}
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
               <Text style={styles.settingText}>Privacy Policy</Text>
@@ -487,6 +541,80 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* Privacy Policy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModal}>
+            <View style={styles.successModalHeader}>
+              <Ionicons name="document-text-outline" size={32} color={colors.primary} />
+              <Text style={styles.successModalTitle}>Privacy Policy</Text>
+            </View>
+
+            <Text style={styles.successModalMessage}>
+              ScanCart stores every list, item, and setting directly on your device. We never upload your data, track usage, or share it with anyone. Managing your groceries stays 100% private and in your control.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => setShowPrivacyModal(false)}
+            >
+              <Text style={styles.successModalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Clear Data Modal */}
+      <Modal
+        visible={showClearDataModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          if (!isClearingData) {
+            setShowClearDataModal(false);
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.iconContainer, styles.dangerIconContainer]}>
+                <Ionicons name="trash" size={32} color={colors.error} />
+              </View>
+              <Text style={styles.modalTitle}>Clear All Data</Text>
+              <Text style={styles.modalDescription}>
+                Are you sure you want to delete all lists and items? This action cannot be undone.
+              </Text>
+            </View>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                onPress={() => setShowClearDataModal(false)}
+                style={styles.cancelButton}
+                disabled={isClearingData}
+              >
+                <Text style={[styles.cancelButtonText, isClearingData && styles.disabledButtonText]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmClearAllData}
+                style={[styles.confirmButton, styles.dangerButton]}
+                disabled={isClearingData}
+              >
+                <Text style={[
+                  styles.confirmButtonText,
+                  styles.dangerButtonText,
+                  isClearingData && styles.disabledButtonText,
+                ]}>{isClearingData ? 'Deleting...' : 'Delete'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Success Modal */}
       <Modal
         visible={showSuccessModal}
@@ -539,6 +667,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxl + spacing.xl,
   },
   section: {
     marginBottom: spacing.xl,
@@ -634,6 +765,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
   },
+  settingItemDisabled: {
+    opacity: 0.6,
+  },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -693,6 +827,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  dangerIconContainer: {
+    backgroundColor: `${colors.error}15`,
   },
   modalTitle: {
     ...typography.h2,
@@ -754,6 +891,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  dangerButton: {
+    backgroundColor: `${colors.error}12`,
+  },
+  dangerButtonText: {
+    color: colors.error,
+  },
+  disabledButtonText: {
+    color: colors.textMuted,
   },
   // Success Modal Styles
   successModalOverlay: {

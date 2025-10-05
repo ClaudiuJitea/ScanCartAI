@@ -9,3 +9,4 @@ export { NameInputModal } from './NameInputModal';
 export { SuccessModal } from './SuccessModal';
 export { ErrorModal } from './ErrorModal';
 export { RecipeModal } from './RecipeModal';
+\nexport { ThemedDialog } from "./ThemedDialog";
