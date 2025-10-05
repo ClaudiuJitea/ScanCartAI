@@ -8,8 +8,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +17,9 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { useShoppingList } from '../hooks/useShoppingList';
+import { useThemedDialog } from '../hooks/useThemedDialog';
 import { openRouterService } from '../services/openRouterService';
-import { SuccessModal } from '../components/common';
+import { SuccessModal, ThemedDialog } from '../components/common';
 
 export const MealPlannerScreen: React.FC = () => {
   const [dishName, setDishName] = useState('');
@@ -34,10 +35,66 @@ export const MealPlannerScreen: React.FC = () => {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const { addList, addItemToList } = useShoppingList();
+  const { dialogConfig, showDialog, closeDialog } = useThemedDialog();
+
+  const promptCameraSettings = () => {
+    showDialog({
+      title: 'Camera Permission Blocked',
+      message: 'ScanCart needs camera access. Update permissions in Settings to snap dish photos.',
+      appearance: 'info',
+      primaryLabel: 'Open Settings',
+      onPrimary: () => Linking.openSettings(),
+      secondaryLabel: 'Not Now',
+    });
+  };
+
+  const ensureCameraPermission = async () => {
+    if (permission?.granted) {
+      return true;
+    }
+
+    const result = await requestPermission();
+    const granted = result?.granted ?? permission?.granted ?? false;
+
+    if (!granted) {
+      if (permission?.canAskAgain === false || result?.canAskAgain === false) {
+        promptCameraSettings();
+      } else {
+        showDialog({
+          title: 'Camera Access Needed',
+          message: 'Please allow camera access so we can help capture dishes.',
+          appearance: 'info',
+        });
+      }
+      return false;
+    }
+
+    return true;
+  };
+
+  const ensureMediaLibraryPermission = async () => {
+    const response = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (response.status !== 'granted') {
+      showDialog({
+        title: 'Photo Access Needed',
+        message: 'Allow ScanCart to access your photos to analyze dishes from your library.',
+        appearance: 'info',
+        primaryLabel: 'Open Settings',
+        onPrimary: () => Linking.openSettings(),
+        secondaryLabel: 'Not Now',
+        });
+      return false;
+    }
+    return true;
+  };
 
   const generateIngredientsList = async () => {
     if (!dishName.trim()) {
-      Alert.alert('Error', 'Please enter a dish name');
+      showDialog({
+        title: 'Dish Name Required',
+        message: 'Please enter the name of the dish you want ingredients for.',
+        appearance: 'info',
+      });
       return;
     }
 
@@ -85,20 +142,19 @@ export const MealPlannerScreen: React.FC = () => {
 
     } catch (error) {
       console.error('Error generating meal plan:', error);
-      Alert.alert('Error', 'Failed to generate ingredient list. Please try again.');
+      showDialog({
+        title: 'Generation Failed',
+        message: 'We could not build your ingredient list. Please try again in a moment.',
+        appearance: 'error',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCameraPress = async () => {
-    if (!permission) {
-      await requestPermission();
-      return;
-    }
-    
-    if (!permission.granted) {
-      Alert.alert('Permission Required', 'Camera access is needed to take photos of dishes');
+    const granted = await ensureCameraPermission();
+    if (!granted) {
       return;
     }
 
@@ -122,7 +178,11 @@ export const MealPlannerScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error taking picture:', error);
-      Alert.alert('Error', 'Failed to take picture. Please try again.');
+      showDialog({
+        title: 'Capture Failed',
+        message: 'We could not capture that photo. Please try again.',
+        appearance: 'error',
+      });
     } finally {
       setIsAnalyzingImage(false);
     }
@@ -132,9 +192,8 @@ export const MealPlannerScreen: React.FC = () => {
     try {
       setShowFullCamera(false);
       
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to photos to use this feature.');
+      const granted = await ensureMediaLibraryPermission();
+      if (!granted) {
         return;
       }
 
@@ -151,7 +210,11 @@ export const MealPlannerScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image');
+      showDialog({
+        title: 'Selection Failed',
+        message: 'We could not open that photo. Please try another.',
+        appearance: 'error',
+      });
     } finally {
       setIsAnalyzingImage(false);
     }
@@ -199,11 +262,11 @@ export const MealPlannerScreen: React.FC = () => {
         setRecognizedDishName(dishName);
         setShowDishRecognizedModal(true);
       } else {
-        Alert.alert(
-          'Dish Recognition',
-          'I couldn\'t clearly identify this dish. Please enter the dish name manually.',
-          [{ text: 'OK' }]
-        );
+        showDialog({
+          title: 'Not Quite Sure',
+          message: 'We could not clearly identify this dish. Please enter the name manually.',
+          appearance: 'info',
+        });
       }
       
     } catch (error) {
@@ -218,7 +281,11 @@ export const MealPlannerScreen: React.FC = () => {
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      showDialog({
+        title: 'Something Went Wrong',
+        message: errorMessage,
+        appearance: 'error',
+      });
     }
   };
 
@@ -393,6 +460,23 @@ export const MealPlannerScreen: React.FC = () => {
         onClose={() => setShowSuccessModal(false)}
         title="Success!"
         message={successMessage}
+      />
+
+      <ThemedDialog
+        visible={Boolean(dialogConfig)}
+        title={dialogConfig?.title ?? ''}
+        message={dialogConfig?.message ?? ''}
+        appearance={dialogConfig?.appearance}
+        onClose={closeDialog}
+        primaryAction={{
+          label: dialogConfig?.primaryLabel ?? 'OK',
+          onPress: dialogConfig?.onPrimary,
+          variant: dialogConfig?.primaryVariant ?? 'primary',
+        }}
+        secondaryAction={dialogConfig?.secondaryLabel
+          ? { label: dialogConfig.secondaryLabel, onPress: dialogConfig.onSecondary }
+          : undefined
+        }
       />
     </SafeAreaView>
   );

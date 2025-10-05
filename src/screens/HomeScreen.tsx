@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,10 +15,11 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { HomeStackParamList } from '../navigation/types';
 import { colors, typography, spacing, borderRadius } from '../utils/constants';
-import { Input, ProgressBar, RecipeModal } from '../components/common';
+import { Input, ProgressBar, RecipeModal, ThemedDialog } from '../components/common';
 import { ProductDetailsModal } from '../components/common/ProductDetailsModal';
 import { QuantityPicker } from '../components/shopping/QuantityPicker';
 import { useShoppingList } from '../hooks/useShoppingList';
+import { useThemedDialog } from '../hooks/useThemedDialog';
 import { ShoppingItem } from '../types/ShoppingList';
 import { ProcessedProduct, openFoodFactsService, OpenFoodFactsProduct } from '../services/openFoodFactsService';
 import { openRouterService, Recipe } from '../services/openRouterService';
@@ -40,6 +40,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const listId = route.params?.listId;
+  const { dialogConfig, showDialog, closeDialog } = useThemedDialog();
   
   const { 
     getCurrentList, 
@@ -211,7 +212,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      showDialog({
+        title: 'Something Went Wrong',
+        message: errorMessage,
+        appearance: 'error',
+      });
       setShowRecipeModal(false);
     } finally {
       setRecipeLoading(false);
@@ -481,6 +486,23 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         recipe={currentRecipe}
         loading={recipeLoading}
         dishName={currentList?.name || ''}
+      />
+
+      <ThemedDialog
+        visible={Boolean(dialogConfig)}
+        title={dialogConfig?.title ?? ''}
+        message={dialogConfig?.message ?? ''}
+        appearance={dialogConfig?.appearance}
+        onClose={closeDialog}
+        primaryAction={{
+          label: dialogConfig?.primaryLabel ?? 'OK',
+          onPress: dialogConfig?.onPrimary,
+          variant: dialogConfig?.primaryVariant ?? 'primary',
+        }}
+        secondaryAction={dialogConfig?.secondaryLabel
+          ? { label: dialogConfig.secondaryLabel, onPress: dialogConfig.onSecondary }
+          : undefined
+        }
       />
     </SafeAreaView>
   );

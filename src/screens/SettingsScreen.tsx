@@ -6,7 +6,6 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
@@ -16,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { colors, typography, spacing, borderRadius } from '../utils/constants';
-import { Card } from '../components/common';
+import { Card, ThemedDialog } from '../components/common';
 import { useShoppingList } from '../hooks/useShoppingList';
+import { useThemedDialog } from '../hooks/useThemedDialog';
 import { openRouterService } from '../services/openRouterService';
 import { createBackup, restoreBackupFromUri } from '../services/backupService';
 
@@ -37,6 +37,7 @@ export const SettingsScreen: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const { dialogConfig, showDialog, closeDialog } = useThemedDialog();
   const inputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
 
@@ -75,13 +76,21 @@ export const SettingsScreen: React.FC = () => {
         setSuccessMessage('Name updated successfully.');
         setShowSuccessModal(true);
       } else {
-        Alert.alert('Error', 'Please enter a valid name.');
+        showDialog({
+          title: 'Name Required',
+          message: 'Please enter a valid name before saving.',
+          appearance: 'info',
+        });
         return;
       }
       setShowAccountModal(false);
       setTempUserName('');
     } catch (error) {
-      Alert.alert('Error', 'Failed to save name. Please try again.');
+      showDialog({
+        title: 'Save Failed',
+        message: 'We could not update your name. Please try again.',
+        appearance: 'error',
+      });
       console.error('Error saving user name:', error);
     }
   };
@@ -111,7 +120,11 @@ export const SettingsScreen: React.FC = () => {
       setShowApiKeyModal(false);
       setTempApiKey('');
     } catch (error) {
-      Alert.alert('Error', 'Failed to save API key. Please try again.');
+      showDialog({
+        title: 'Save Failed',
+        message: 'We could not update your API key. Please try again.',
+        appearance: 'error',
+      });
       console.error('Error saving API key:', error);
     }
   };
@@ -127,7 +140,11 @@ export const SettingsScreen: React.FC = () => {
 
   const testApiConnection = async () => {
     if (!apiKey.trim()) {
-      Alert.alert('No API Key', 'Please set your OpenRouter API key first.');
+      showDialog({
+        title: 'API Key Needed',
+        message: 'Add your OpenRouter API key in settings before testing the connection.',
+        appearance: 'info',
+      });
       return;
     }
 
@@ -135,13 +152,22 @@ export const SettingsScreen: React.FC = () => {
     try {
       const isConnected = await openRouterService.testConnection();
       if (isConnected) {
-        Alert.alert('Success', 'API connection test successful! Your key is working properly.');
+        setSuccessMessage('API connection test successful! Your key is working properly.');
+        setShowSuccessModal(true);
       } else {
-        Alert.alert('Connection Failed', 'Unable to connect to OpenRouter. Please check your API key.');
+        showDialog({
+          title: 'Connection Failed',
+          message: 'We could not connect to OpenRouter. Please double-check your API key.',
+          appearance: 'error',
+        });
       }
     } catch (error) {
       console.error('Connection test error:', error);
-      Alert.alert('Connection Failed', 'Unable to connect to OpenRouter. Please check your API key and internet connection.');
+      showDialog({
+        title: 'Connection Failed',
+        message: 'We could not reach OpenRouter. Check your API key and internet connection, then try again.',
+        appearance: 'error',
+      });
     } finally {
       setTestingConnection(false);
     }
@@ -170,10 +196,11 @@ export const SettingsScreen: React.FC = () => {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error exporting data:', error);
-      Alert.alert(
-        'Export Failed',
-        error instanceof Error ? error.message : 'Could not export data. Please try again.'
-      );
+      showDialog({
+        title: 'Export Failed',
+        message: error instanceof Error ? error.message : 'Could not export data. Please try again.',
+        appearance: 'error',
+      });
     } finally {
       setIsExporting(false);
     }
@@ -206,10 +233,11 @@ export const SettingsScreen: React.FC = () => {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error importing data:', error);
-      Alert.alert(
-        'Import Failed',
-        error instanceof Error ? error.message : 'Could not import data. Please try again.'
-      );
+      showDialog({
+        title: 'Import Failed',
+        message: error instanceof Error ? error.message : 'Could not import data. Please try again.',
+        appearance: 'error',
+      });
     } finally {
       setIsImporting(false);
     }
@@ -232,7 +260,11 @@ export const SettingsScreen: React.FC = () => {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error clearing data:', error);
-      Alert.alert('Error', 'Failed to clear data. Please try again.');
+      showDialog({
+        title: 'Clear Failed',
+        message: 'We could not clear your data. Please try again.',
+        appearance: 'error',
+      });
     } finally {
       setIsClearingData(false);
     }
@@ -642,6 +674,23 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <ThemedDialog
+        visible={Boolean(dialogConfig)}
+        title={dialogConfig?.title ?? ''}
+        message={dialogConfig?.message ?? ''}
+        appearance={dialogConfig?.appearance}
+        onClose={closeDialog}
+        primaryAction={{
+          label: dialogConfig?.primaryLabel ?? 'OK',
+          onPress: dialogConfig?.onPrimary,
+          variant: dialogConfig?.primaryVariant ?? 'primary',
+        }}
+        secondaryAction={dialogConfig?.secondaryLabel
+          ? { label: dialogConfig.secondaryLabel, onPress: dialogConfig.onSecondary }
+          : undefined
+        }
+      />
     </SafeAreaView>
   );
 };

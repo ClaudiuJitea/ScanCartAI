@@ -69,7 +69,7 @@ export const ThemedDialog: React.FC<ThemedDialogProps> = ({
                 style={[styles.button, styles.secondaryButton]}
                 onPress={handleSecondaryPress}
               >
-                <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+                <Text style={styles.secondaryButtonText}>
                   {secondaryAction.label}
                 </Text>
               </TouchableOpacity>

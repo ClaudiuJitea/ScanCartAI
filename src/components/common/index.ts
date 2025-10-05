@@ -4,9 +4,9 @@ export { Input } from './Input';
 export { Card } from './Card';
 export { ProgressBar } from './ProgressBar';
 
-// Modal Components  
+// Modal Components
 export { NameInputModal } from './NameInputModal';
 export { SuccessModal } from './SuccessModal';
 export { ErrorModal } from './ErrorModal';
 export { RecipeModal } from './RecipeModal';
-\nexport { ThemedDialog } from "./ThemedDialog";
+export { ThemedDialog } from './ThemedDialog';

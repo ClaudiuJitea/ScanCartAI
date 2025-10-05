@@ -19,8 +19,8 @@ import { colors, typography, spacing, borderRadius } from '../utils/constants';
 import { openRouterService, ScanResult, BarcodeResult } from '../services/openRouterService';
 import { openFoodFactsService, ProcessedProduct } from '../services/openFoodFactsService';
 import { useShoppingList } from '../hooks/useShoppingList';
+import { useThemedDialog } from '../hooks/useThemedDialog';
 import { NameInputModal, SuccessModal, ErrorModal, ThemedDialog } from '../components/common';
-import { DialogConfig } from '../types/Dialog';
 
 type ListScannerScreenRouteProp = RouteProp<RootTabParamList, 'ListScanner'>;
 
@@ -43,10 +43,7 @@ export const ListScannerScreen: React.FC = () => {
   const [productAddedMessage, setProductAddedMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [dialogConfig, setDialogConfig] = useState<DialogConfig | null>(null);
-
-  const closeDialog = () => setDialogConfig(null);
-  const showDialog = (config: DialogConfig) => setDialogConfig(config);
+  const { dialogConfig, showDialog, closeDialog } = useThemedDialog();
 
   useEffect(() => {
     if (!permission) {
@@ -457,7 +454,8 @@ export const ListScannerScreen: React.FC = () => {
         }}
         secondaryAction={dialogConfig?.secondaryLabel
           ? { label: dialogConfig.secondaryLabel, onPress: dialogConfig.onSecondary }
-          : undefined}
+          : undefined
+        }
       />
     </SafeAreaView>
   );
